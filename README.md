@@ -23,7 +23,6 @@ The system allows users to ask natural-language questions about support tickets,
 
 ## Architecture
 
-```text
                          Browser UI
                              |
                              v
