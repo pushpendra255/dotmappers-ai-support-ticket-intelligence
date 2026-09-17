@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Support Ticket Intelligence</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1050px; margin: 30px auto; padding: 0 18px; background: #f5f7fa; color: #1f2937; }
+    h1 { margin-bottom: 6px; }
+    .muted { color: #6b7280; }
+    .card { background: white; padding: 22px; margin: 18px 0; border-radius: 10px; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+    textarea { width: 100%; min-height: 90px; padding: 12px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; }
+    button { padding: 10px 16px; border: 0; border-radius: 7px; cursor: pointer; margin-top: 10px; }
+    pre { white-space: pre-wrap; overflow-x: auto; background: #f8fafc; padding: 14px; border-radius: 7px; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>AI Support Ticket Intelligence</h1>
+  <div class="muted">LLM-powered natural-language querying + deterministic anomaly detection</div>
+
+  <div class="card">
+    <h2>Ask a question</h2>
+    <textarea id="question" placeholder="Example: How many tickets are currently open?"></textarea>
+    <br>
+    <button onclick="ask()">Ask Question</button>
+    <div id="answer"></div>
+  </div>
+
+  <div class="card">
+    <h2>Anomaly Detection</h2>
+    <button onclick="loadAnomalies()">Run Anomaly Detection</button>
+    <div id="anomalies"></div>
+  </div>
+
+  <div class="card">
+    <h2>System Health</h2>
+    <button onclick="health()">Check Health</button>
+    <pre id="health"></pre>
+  </div>
+
+<script>
+async function ask() {
+  const q = document.getElementById("question").value.trim();
+  if (!q) return;
+  const box = document.getElementById("answer");
+  box.innerHTML = "<p>Processing...</p>";
+  try {
+    const r = await fetch("/api/query", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: q})
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || "Request failed");
+    box.innerHTML = `<h3>Answer</h3><p>${escapeHtml(data.answer)}</p>
+      <h3>Structured Plan</h3><pre>${escapeHtml(JSON.stringify(data.plan, null, 2))}</pre>
+      <h3>Data</h3><pre>${escapeHtml(JSON.stringify(data.data, null, 2))}</pre>`;
+  } catch (e) {
+    box.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function loadAnomalies() {
+  const box = document.getElementById("anomalies");
+  box.innerHTML = "<p>Running...</p>";
+  try {
+    const r = await fetch("/api/anomalies");
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || "Request failed");
+    let rows = data.anomalies.map(a =>
+      `<tr><td>${escapeHtml(a.ticket_id)}</td><td>${escapeHtml(a.anomaly_type)}</td>
+      <td>${escapeHtml(a.severity)}</td><td>${escapeHtml(a.reason)}</td></tr>`).join("");
+    box.innerHTML = `<p><b>Total anomalies:</b> ${data.total_anomalies}</p>
+      <p><b>Reference time:</b> ${escapeHtml(data.reference_time)}</p>
+      <p><b>Long-resolution threshold:</b> ${data.long_resolution_threshold_hours} hours</p>
+      <table><tr><th>Ticket</th><th>Type</th><th>Severity</th><th>Reason</th></tr>${rows}</table>`;
+  } catch (e) {
+    box.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function health() {
+  const r = await fetch("/api/health");
+  document.getElementById("health").textContent = JSON.stringify(await r.json(), null, 2);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+</script>
+</body>
+</html>
